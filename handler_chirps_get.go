@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/samuelvenancio/chirpy/internal/database"
@@ -49,6 +50,13 @@ func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Reque
 		})
 	}
 
+	sorted := r.URL.Query().Get("sort")
+	switch sorted {
+	case "asc":
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.Before(chirps[j].CreatedAt) })
+	case "desc":
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.After(chirps[j].CreatedAt) })
+	}
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
