@@ -4,23 +4,48 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/samuelvenancio/chirpy/internal/database"
 )
 
+func authorIDFromRequest(r *http.Request) (uuid.UUID, error) {
+	authorIDString := r.URL.Query().Get("author_id")
+	if authorIDString == "" {
+		return uuid.Nil, nil
+	}
+	authorID, err := uuid.Parse(authorIDString)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return authorID, nil
+}
+
 func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Request) {
-	dbChirps, err := cfg.db.GetChirps(r.Context())
+	authorID, err := authorIDFromRequest(r)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid author ID", err)
+		return
+	}
+
+	var dbChirps []database.Chirp
+
+	if authorID != uuid.Nil {
+		dbChirps, err = cfg.db.GetChirpsByAuthor(r.Context(), authorID)
+	} else {
+		dbChirps, err = cfg.db.GetChirps(r.Context())
+	}
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve chirps", err)
 		return
 	}
 
-	var chirps []Chirp
-	for _, chirp := range dbChirps {
+	chirps := []Chirp{}
+	for _, dbChirp := range dbChirps {
 		chirps = append(chirps, Chirp{
-			ID:        chirp.ID,
-			CreatedAt: chirp.CreatedAt,
-			UpdatedAt: chirp.UpdatedAt,
-			UserID:    chirp.UserID,
-			Body:      chirp.Body,
+			ID:        dbChirp.ID,
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
+			UserID:    dbChirp.UserID,
+			Body:      dbChirp.Body,
 		})
 	}
 
